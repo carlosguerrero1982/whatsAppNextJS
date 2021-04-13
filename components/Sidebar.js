@@ -2,13 +2,28 @@ import React from 'react';
 import styled from 'styled-components';
 import Avatar from '@material-ui/core/Avatar';
 import MoreVertIcon from '@material-ui/icons/MoreVert';
+import AttachFileIcon from '@material-ui/icons/AttachFile';
 import ChatIcon from '@material-ui/icons/Chat';
-import Chat from '@material-ui/icons/Chat';
+import Chat from '../components/Chat'
 import { Button, IconButton } from '@material-ui/core';
 import SearchIcon from '@material-ui/icons/Search';
 import * as EmailValidator from 'email-validator';
+import {useAuthState} from 'react-firebase-hooks/auth';
+import {useCollection} from 'react-firebase-hooks/firestore';
+import {auth, db, provider} from '../firebase'
 
 function Sidebar() {
+
+    const [user] = useAuthState(auth)
+
+    const userChatRef = db.collection('chats').where('users','array-contains',user.email)
+
+    const [ChatSnapshot] = useCollection(userChatRef)
+
+    const signout=()=>{
+        auth.signOut()
+        
+    }
 
     const createChat=()=>{
 
@@ -18,13 +33,22 @@ function Sidebar() {
             return;
         }
 
-        if(EmailValidator.validate(input)){
+        if(EmailValidator.validate(input) && !chatExists(input) && input!==user.email){
             console.log('validated');
+
+            db.collection('chats').add({
+                users:[user.email,input],
+            })
         }else{
             console.log('not validated');
         }
     };
 
+    const chatExists=(recipient)=>
+
+        !!ChatSnapshot?.docs.find((chat)=>chat.data().users.find((u)=>u===recipient)?.length>0)
+
+    
 
     return (
         <div>
@@ -32,7 +56,7 @@ function Sidebar() {
 
             <Header>
 
-                <UseAvatar />
+                <UseAvatar src={user.photoURL} onClick={signout} />
 
                 <IconsContainer>
 
@@ -63,6 +87,10 @@ function Sidebar() {
         </Search>
 
         <SidebarButton onClick={createChat}> Start a new chat </SidebarButton>
+
+        {ChatSnapshot?.docs.map(chat=>(
+            <Chat key={chat.id} id={chat.id} users={chat.data().users}/>
+        ))}
             
         </Container>
         </div>
@@ -73,6 +101,18 @@ export default Sidebar;
 
 const Container =styled.div` 
 
+flex:0.45;
+border-right:1px solid whitesmoke;
+height:100vh;
+min-width:300px;
+max-width:350px;
+overflow-y:scroll;
+::-webkit-scrollbar{
+    display:none;
+}
+
+-ms-overflow-style:none;
+scrollbar-width:none;
 
 `
 
